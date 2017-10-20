@@ -1,7 +1,7 @@
 library(shiny)
 library(DT)
 
-data <- read_tsv("../../../resources/RNASeq/amit/amit.palantir.public.rnaseq", comment = "#")
+data <- readr::read_tsv("../../../resources/RNASeq/amit/amit.palantir.public.rnaseq", comment = "#")
 
 ui <- fluidPage(
   
