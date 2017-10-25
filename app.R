@@ -87,16 +87,12 @@ fillRNASeqTab <- function() {
   tabItem(tabName = "samples",
           h2("Samples"),
           fluidRow(
-            box(title = "Box title",
-                column(4,
-                       selectInput("entrezFilter",
-                                   "EntrezID",
-                                   unique(as.character(publicRNASeq[[1]]$entrezID)))
-                       ),
-                column(4,
-                       selectInput("symbolFilter",
-                                   "Gene",
-                                   unique(as.character(publicRNASeq[[1]]$Symbol)))
+            box(
+                column(6,
+                       uiOutput("symbolFilter")
+                ),
+                column(6,
+                       uiOutput("cellLineFilter")
                 )
             )
           ),
@@ -111,10 +107,34 @@ server <- function(input, output) {
   set.seed(122)
   histdata <- rnorm(500)
   
+  datasetInput <- reactive({
+    publicRNASeq[[1]]
+  })
+  
   output$private <- renderMenu({
     sidebarMenu(
       menuItem("Samples", tabName = "samples", icon = icon("files-o")),
       menuItem("Genes", tabName = "genes", icon = icon("empire"))
+    )
+  })
+  
+  output$symbolFilter <- renderUI({
+    selectInput("symbolFilter",
+                label = "Gene",
+                choices = sort(datasetInput()$Symbol),
+                selected = sort(datasetInput()$Symbol)[1:10],
+                multiple = TRUE,
+                selectize = TRUE
+    )
+  })
+  
+  output$cellLineFilter <- renderUI({
+    selectInput("cellLineFilter",
+                label = "Cell line",
+                choices = names(datasetInput())[-c(1:2)],
+                selected = names(datasetInput())[3],
+                multiple = TRUE,
+                selectize = TRUE
     )
   })
   
@@ -140,8 +160,10 @@ server <- function(input, output) {
   })
 
   output$mytable1 <- DT::renderDataTable({
-    DT::datatable(publicRNASeq[[1]])
-  })
+    dataset <- datasetInput() %>%
+      dplyr::select_at(c("Symbol", "entrezID", input$cellLineFilter)) %>%
+      dplyr::filter(Symbol %in% input$symbolFilter)
+    }, options = list(dom = 't'), rownames= FALSE)
 }
 
 shinyApp(ui, server)
