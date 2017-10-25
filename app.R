@@ -30,11 +30,13 @@ library(shinydashboard)
 publicRNASeqLoc = 'testdata/PublicExpression/'
 publicRNASeq = list()
 publicRNASeqMenuItemList <- list()
+publicRNASeqTabItemList <- list()
 
 for (resource in list.files(publicRNASeqLoc, pattern=".palantir.public.rnaseq")) {
   name = sub(".palantir.public.rnaseq","",resource)
   publicRNASeq[[name]] = readr::read_tsv(paste(publicRNASeqLoc, resource, sep=""), comment = "#")
   publicRNASeqMenuItemList[[length(publicRNASeqMenuItemList)+1]] <- menuSubItem(name, tabName = name, icon = icon('caret-square-o-right'))
+  publicRNASeqTabItemList[[length(publicRNASeqTabItemList)+1]] <- tabItem(tabName = name, h2(name))
 }
 
 # Essentialomes
@@ -63,30 +65,14 @@ sideBar <- dashboardSidebar(
 )
 
 body <- dashboardBody(
-  tabItems(
-    # First tab content
-    tabItem(tabName = "dashboard",
-            fluidRow(
-              box(plotOutput("plot1", height = 250)),
-              
-              box(
-                title = "Controls",
-                sliderInput("slider", "Number of observations:", 1, 100, 50)
-              )
-            )
-    ),
-    
-    # Second tab content
-    tabItem(tabName = "widgets",
-            h2("Widgets tab content")
-    )
-  )
+  uiOutput("ui")
 )
 
 ui <- dashboardPage(
   dashboardHeader(title = "Palantir"),
   sideBar,
-  body
+  body,
+  skin = "green"
 )
 
 ########################################
@@ -95,14 +81,40 @@ ui <- dashboardPage(
 ########################################
 ########################################
 
+# Create RNASeq dynamic tab
+
+fillRNASeqTab <- function() {
+  tabItem(tabName = "samples",
+          h2("Samples"),
+          fluidRow(
+            box(title = "Box title",
+                column(4,
+                       selectInput("entrezFilter",
+                                   "EntrezID",
+                                   unique(as.character(publicRNASeq[[1]]$entrezID)))
+                       ),
+                column(4,
+                       selectInput("symbolFilter",
+                                   "Gene",
+                                   unique(as.character(publicRNASeq[[1]]$Symbol)))
+                )
+            )
+          ),
+          fluidRow(
+            DT::dataTableOutput("mytable1")
+          )
+  )
+}
+
+
 server <- function(input, output) {
   set.seed(122)
   histdata <- rnorm(500)
   
   output$private <- renderMenu({
     sidebarMenu(
-      menuItem("Samples", icon = icon("files-o")),
-      menuItem("Genes", icon = icon("empire"))
+      menuItem("Samples", tabName = "samples", icon = icon("files-o")),
+      menuItem("Genes", tabName = "genes", icon = icon("empire"))
     )
   })
   
@@ -117,11 +129,18 @@ server <- function(input, output) {
     )
   })
   
-  
+  output$ui <- renderUI({
+    tabList <- list(fillRNASeqTab(),
+                    tabItem(tabName = "genes",
+                            h2("Genes")
+                    )
+    )
+    
+    tags$div( c(tabList, publicRNASeqTabItemList) , class = "tab-content" )
+  })
 
-  output$plot1 <- renderPlot({
-    data <- histdata[seq_len(input$slider)]
-    hist(data)
+  output$mytable1 <- DT::renderDataTable({
+    DT::datatable(publicRNASeq[[1]])
   })
 }
 
