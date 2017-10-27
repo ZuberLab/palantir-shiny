@@ -97,7 +97,17 @@ fillRNASeqTab <- function() {
             )
           ),
           fluidRow(
-            DT::dataTableOutput("mytable1")
+            column(6,
+              DT::dataTableOutput("mytable1")
+            )
+          ),
+          fluidRow(
+            column(2,
+              downloadButton("downloadSelection", label = "Download selection", class = "fa fa-filter")
+            ),
+            column(2,
+              downloadButton("downloadAll", label = "Download all")
+            )
           )
   )
 }
@@ -122,7 +132,6 @@ server <- function(input, output) {
     selectInput("symbolFilter",
                 label = "Gene",
                 choices = sort(datasetInput()$Symbol),
-                selected = sort(datasetInput()$Symbol)[1:10],
                 multiple = TRUE,
                 selectize = TRUE
     )
@@ -132,7 +141,6 @@ server <- function(input, output) {
     selectInput("cellLineFilter",
                 label = "Cell line",
                 choices = names(datasetInput())[-c(1:2)],
-                selected = names(datasetInput())[3],
                 multiple = TRUE,
                 selectize = TRUE
     )
@@ -160,10 +168,56 @@ server <- function(input, output) {
   })
 
   output$mytable1 <- DT::renderDataTable({
+    
+    cellLineChoice <- input$cellLineFilter
+    geneChoice <- input$symbolFilter
+    if (is.null(cellLineChoice)) {
+      cellLineChoice <- names(datasetInput())[-c(1:2)]
+    }
+    if (is.null(geneChoice)) {
     dataset <- datasetInput() %>%
-      dplyr::select_at(c("Symbol", "entrezID", input$cellLineFilter)) %>%
-      dplyr::filter(Symbol %in% input$symbolFilter)
-    }, options = list(dom = 't'), rownames= FALSE)
+      dplyr::select_at(c("Symbol", "entrezID", cellLineChoice))
+    } else {
+      dataset <- datasetInput() %>%
+        dplyr::select_at(c("Symbol", "entrezID", cellLineChoice)) %>%
+        dplyr::filter(Symbol %in% input$symbolFilter)
+    }
+    
+    }, options = list(dom = 'ltipr'), rownames= FALSE
+  )
+  
+  output$downloadSelection <- downloadHandler(
+    filename = function() {
+      "download.tsv"
+    },
+    content = function(file) {
+      
+      cellLineChoice <- input$cellLineFilter
+      geneChoice <- input$symbolFilter
+      if (is.null(cellLineChoice)) {
+        cellLineChoice <- names(datasetInput())[-c(1:2)]
+      }
+      if (is.null(geneChoice)) {
+        dataset <- datasetInput() %>%
+          dplyr::select_at(c("Symbol", "entrezID", cellLineChoice))
+      } else {
+        dataset <- datasetInput() %>%
+          dplyr::select_at(c("Symbol", "entrezID", cellLineChoice)) %>%
+          dplyr::filter(Symbol %in% input$symbolFilter)
+      }
+  
+      write.table(dataset, file, row.names = FALSE, quote=FALSE, sep ="\t")
+    }
+  )
+  
+  output$downloadAll <- downloadHandler(
+    filename = function() {
+      "download.tsv"
+    },
+    content = function(file) {
+      write.table(datasetInput(), file, row.names = FALSE, quote=FALSE, sep ="\t")
+    }
+  )
 }
 
 shinyApp(ui, server)
